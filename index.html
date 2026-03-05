@@ -451,10 +451,10 @@ function buildCards() {
         </div>
       </div>
       <div class="tf-body">
-        <div class="mini-upload" id="upload-${tf.id}">
-          <input type="file" accept="image/*" onchange="handleTfFile(event,'${tf.id}')">
-          <div class="mu-icon">📊</div>
-          <div class="mu-text">${tf.label} CHART FELTÖLTÉSE<br><span style="font-size:9px;opacity:0.6">PNG / JPG · TradingView screenshot</span></div>
+        <div class="mini-upload" id="upload-${tf.id}" tabindex="0" onclick="document.getElementById('fileInput-${tf.id}').click()">
+          <input type="file" id="fileInput-${tf.id}" accept="image/*" style="display:none" onchange="handleTfFile(event,'${tf.id}')">
+          <div class="mu-icon">📋</div>
+          <div class="mu-text">${tf.label} CHART BEILLESZTÉSE<br><span style="font-size:9px;opacity:0.6">Ctrl+V · vagy kattints a fájl feltöltéshez</span></div>
         </div>
         <div class="mini-preview" id="preview-${tf.id}">
           <img id="previewImg-${tf.id}" src="" alt="">
@@ -500,6 +500,7 @@ function handleTfFile(e, tfId) {
     document.getElementById(`status-${tfId}`).textContent = 'Kép feltöltve – kész az elemzésre';
     tfData[tfId].skipped = false;
     buildFlow();
+    checkSummarizeBtn();
   };
   reader.readAsDataURL(file);
 }
@@ -891,6 +892,52 @@ function resetAll() {
   buildFlow();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+
+// ── PASTE SUPPORT (Ctrl+V) ──
+function getActiveTfId() {
+  for (const tf of TIMEFRAMES) {
+    const card = document.getElementById(`card-${tf.id}`);
+    if (card && !card.classList.contains('collapsed')) return tf.id;
+  }
+  return null;
+}
+
+document.addEventListener('paste', (e) => {
+  const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+  let imageItem = null;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) { imageItem = item; break; }
+  }
+  if (!imageItem) return;
+
+  const tfId = getActiveTfId();
+  if (!tfId) return;
+  e.preventDefault();
+
+  const blob = imageItem.getAsFile();
+  tfData[tfId].mime = blob.type || 'image/png';
+
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    tfData[tfId].image = ev.target.result.split(',')[1];
+    document.getElementById(`previewImg-${tfId}`).src = ev.target.result;
+    document.getElementById(`preview-${tfId}`).classList.add('show');
+    document.getElementById(`upload-${tfId}`).style.display = 'none';
+    document.getElementById(`analyzeBtn-${tfId}`).disabled = false;
+    document.getElementById(`status-${tfId}`).textContent = '📋 Kép beillesztve – kész az elemzésre';
+    tfData[tfId].skipped = false;
+
+    // Cyan flash confirm
+    const card = document.getElementById(`card-${tfId}`);
+    card.style.borderColor = 'var(--cyan)';
+    card.style.boxShadow = '0 0 28px rgba(0,212,255,0.25)';
+    setTimeout(() => { card.style.borderColor = ''; card.style.boxShadow = ''; }, 900);
+
+    buildFlow();
+    checkSummarizeBtn();
+  };
+  reader.readAsDataURL(blob);
+});
 
 // Init
 buildFlow();
